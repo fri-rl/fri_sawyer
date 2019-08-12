@@ -1,0 +1,8 @@
+<launch>
+
+  <include file="$(find fri_sawyer)/launch/anna.launch" />
+  <include file="$(find fri_sawyer)/launch/alexei.launch" />
+
+  <param name="robot_description" command="$(find xacro)/xacro --inorder '$(find sawyer_description)/urdf/sawyer.urdf.xacro' electric_gripper:='true'" />
+
+</launch>

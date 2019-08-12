@@ -1,0 +1,10 @@
+<launch>
+
+  <include file="$(find fri_sawyer)/launch/sawyer.launch" >
+      <arg name="sawyer_name" value="anna" />
+      <arg name="sawyer_master" value="http://192.168.0.101:11311" />
+      <arg name="server_master" value="http://192.168.0.201:11311" />
+      <arg name="tf_map_to_sawyer" value="0 -1.2192 0 0 0 0 1" />
+  </include>
+
+</launch>

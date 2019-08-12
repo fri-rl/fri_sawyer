@@ -1,0 +1,156 @@
+<launch>
+
+  <arg name="sawyer_name" default="tom" />
+  <arg name="sawyer_master" default="http://192.168.0.100:11311" />
+  <arg name="server_master" default="http://192.168.0.200:11311" />
+  <arg name="tf_map_to_sawyer" default="0 0 0 0 0 0 1" />
+
+
+  <param name="robot_description" command="$(find xacro)/xacro --inorder '$(find sawyer_description)/urdf/sawyer.urdf.xacro' electric_gripper:='true'" />
+
+
+  <!--###########################-->
+  <!--## from robot to server ###-->
+  <!--###########################-->
+
+
+
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_joint_states'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="sub_topic" type="string" value="/robot/joint_states"/>
+    <param name="pub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="pub_topic" type="string" value="/$(arg sawyer_name)/joint/states"/>
+    <param name="msg_type" type="string" value="sensor_msgs/JointState"/>
+  </node>
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_end_effector_states'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="sub_topic" type="string" value="/robot/limb/right/endpoint_state"/>
+    <param name="pub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="pub_topic" type="string" value="/$(arg sawyer_name)/end_effector/states"/>
+    <param name="msg_type" type="string" value="intera_core_msgs/EndpointState"/>
+  </node>
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_navigator_states'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="sub_topic" type="string" value="/io/robot/navigator/state"/>
+    <param name="pub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="pub_topic" type="string" value="/$(arg sawyer_name)/navigator/states"/>
+    <param name="msg_type" type="string" value="intera_core_msgs/IODeviceStatus"/>
+  </node>
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_cuff_states'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="sub_topic" type="string" value="/io/robot/cuff/state"/>
+    <param name="pub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="pub_topic" type="string" value="/$(arg sawyer_name)/cuff/states"/>
+    <param name="msg_type" type="string" value="intera_core_msgs/IODeviceStatus"/>
+  </node>
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_gripper_states'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="sub_topic" type="string" value="/io/end_effector/right_gripper/state"/>
+    <param name="pub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="pub_topic" type="string" value="/$(arg sawyer_name)/gripper/states"/>
+    <param name="msg_type" type="string" value="intera_core_msgs/IODeviceStatus"/>
+  </node>
+<!--
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_head_camera_color_rect'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="sub_topic" type="string" value="/io/internal_camera/head_camera/image_rect_color"/>
+    <param name="pub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="pub_topic" type="string" value="/$(arg sawyer_name)/head_camera/image_color_rect"/>
+    <param name="msg_type" type="string" value="sensor_msgs/Image"/>
+  </node>
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_head_camera_color'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="sub_topic" type="string" value="/io/internal_camera/head_camera/image_raw"/>
+    <param name="pub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="pub_topic" type="string" value="/$(arg sawyer_name)/head_camera/image_color"/>
+    <param name="msg_type" type="string" value="sensor_msgs/Image"/>
+  </node>
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_head_camera_info'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="sub_topic" type="string" value="/io/internal_camera/head_camera/camera_info"/>
+    <param name="pub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="pub_topic" type="string" value="/$(arg sawyer_name)/head_camera/camera_info"/>
+    <param name="msg_type" type="string" value="sensor_msgs/CameraInfo"/>
+  </node> -->
+
+
+
+  <!--###########################-->
+  <!--## from server to robot ###-->
+  <!--###########################-->
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_cmds'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="sub_topic" type="string" value="/$(arg sawyer_name)/joint/command"/>
+    <param name="pub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="pub_topic" type="string" value="/robot/limb/right/joint_command"/>
+    <param name="msg_type" type="string" value="intera_core_msgs/JointCommand"/>
+  </node>
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_gripper_cmds'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="sub_topic" type="string" value="/$(arg sawyer_name)/gripper/command"/>
+    <param name="pub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="pub_topic" type="string" value="/io/end_effector/right_gripper/command"/>
+    <param name="msg_type" type="string" value="intera_core_msgs/IOComponentCommand"/>
+  </node>
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_io_robot_cmds'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="sub_topic" type="string" value="/$(arg sawyer_name)/io/robot/command"/>
+    <param name="pub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="pub_topic" type="string" value="/io/robot/robot/command"/>
+    <param name="msg_type" type="string" value="intera_core_msgs/IOComponentCommand"/>
+  </node>
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_motion_goal'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="sub_topic" type="string" value="/$(arg sawyer_name)/motion/goal"/>
+    <param name="pub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="pub_topic" type="string" value="/motion/motion_command/goal"/>
+    <param name="msg_type" type="string" value="intera_motion_msgs/MotionCommandActionGoal"/>
+  </node>
+
+  <!-- <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_head_camera_command'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="sub_topic" type="string" value="/$(arg sawyer_name)/head_camera/command"/>
+    <param name="pub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="pub_topic" type="string" value="/io/internal_camera/head_camera/command"/>
+    <param name="msg_type" type="string" value="intera_core_msgs/IOComponentCommand"/>
+  </node> -->
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_head_camera_command_head_pan'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="sub_topic" type="string" value="/$(arg sawyer_name)/head_camera/command_head_pan"/>
+    <param name="pub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="pub_topic" type="string" value="/robot/head/command_head_pan"/>
+    <param name="msg_type" type="string" value="intera_core_msgs/HeadPanCommand"/>
+  </node>
+
+
+
+
+  <!--###########################-->
+  <!--# TF from robot to server #-->
+  <!--###########################-->
+  <node launch-prefix="bash -c 'if [ &quot;`rosnode list /$(arg sawyer_name)_forward_tf`&quot; == &quot;&quot; ]; then $0 $@ ; else echo -e &quot;\033[0;33mTF already forwarded\033[0m&quot;; fi'" pkg="multicore_comm" type="tfbridge_node"  name="$(arg sawyer_name)_forward_tf" required="false" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="sub_topic" type="string" value="/tf"/>
+    <param name="pub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="pub_topic" type="string" value="/tf"/>
+    <param name="msg_type" type="string" value="tf2_msgs/TFMessage"/>
+    <param name="tf_name" type="string" value="$(arg sawyer_name)"/>
+  </node>
+
+
+  <node pkg="tf" type="static_transform_publisher" name="map_to_$(arg sawyer_name)" args="$(arg tf_map_to_sawyer) map $(arg sawyer_name)/base 100" />
+  <node pkg="tf" type="static_transform_publisher" name="$(arg sawyer_name)_to_reference" args="0 0 0 0 0 0 1 $(arg sawyer_name)/base $(arg sawyer_name)/reference/base 100" />
+
+</launch>

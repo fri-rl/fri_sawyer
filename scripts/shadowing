@@ -1,0 +1,74 @@
+#! /usr/bin/env python
+
+
+import numpy as np
+
+import threading
+
+import rospy
+
+from sensor_msgs.msg import JointState, PointCloud2
+from intera_core_msgs.msg import JointCommand, IODeviceStatus, IOComponentCommand
+from intera_motion_msgs.msg import MotionCommandActionGoal, Trajectory, TrajectoryOptions, Waypoint
+from tf2_msgs.msg import TFMessage
+
+import time
+
+from collections import OrderedDict
+
+import rosbag
+import datetime
+
+import rospkg
+
+from fri_sawyer.sawyer import DesiredStateProvider, Sawyer
+
+import sys
+
+data_dir = None
+if len(sys.argv) > 1:
+    data_dir = sys.argv[1]
+
+shadowing = DesiredStateProvider()
+shadowing.register_state('joint')
+shadowing.register_state('gripper')
+shadowing._HACK_MODE = JointCommand.VELOCITY_MODE
+
+alexei = Sawyer('alexei')
+alexei.register_desired_state_provider('shadowing', shadowing)
+
+
+anna = Sawyer('anna', data_dir = data_dir)
+
+def leader_thread():
+    anna.start()
+    anna.go_home()
+    anna.hold_active()
+    anna.wait_until_reached()
+    anna.release_active()
+    anna.register_state_cb(lambda states,state_ids: alexei.set_desired_states('shadowing',states,state_ids))
+
+    rospy.spin()
+
+def follower_thread():
+    alexei.start()
+    alexei.go_home()
+    alexei.hold_active()
+    alexei.wait_until_reached()
+    alexei.release_active()
+    alexei.activate_desired_state_provider('shadowing')
+
+    rospy.spin()
+
+if __name__ == '__main__':
+    rospy.init_node("Shadowing", anonymous=True)
+
+
+    ft = threading.Thread(target=follower_thread)
+    lt = threading.Thread(target=leader_thread)
+
+    ft.start()
+    lt.start()
+
+    ft.join()
+    lt.join()
