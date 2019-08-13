@@ -22,7 +22,7 @@ import datetime
 import rospkg
 
 class GRIPPER():
-    #edit pull this from sawyer file
+    #edit pull this from sawyer files
     MAX = 0.041667
     MIN = 0.000000
 
