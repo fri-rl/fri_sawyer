@@ -50,15 +50,18 @@ class BUTTON():
     HOLDING = 2
     DOUBLE_CLICKED = 3
 
+# sets states and get states based on state id
 class DesiredStateProvider(object):
 
     def __init__(self):
-
+        # why an ordered dict
         self._states = OrderedDict()
         self._reached = threading.Event()
         self._reached.clear()
+        #unclear
         self._HACK_MODE = JointCommand.POSITION_MODE
         self._cycles_since_active = 0
+        #what does this mean
         self._HACK_MAX_STEPS = 1
 
     def register_state(self, state_id):
@@ -67,8 +70,10 @@ class DesiredStateProvider(object):
     def get_states(self, state_ids = None):
         if state_ids is None:
             state_ids = self._states.keys()
+        # if not already a list of tuples, wrap in list
         elif not isinstance(state_ids, (list, tuple)):
             state_ids = [state_ids]
+        # return the corresponding keys in a list or none if not found
         return [self._states[state_id] if  state_id in self._states else None for state_id in state_ids]
 
     def set_states(self, states, state_ids = None):
@@ -84,6 +89,7 @@ class DesiredStateProvider(object):
     def run_cycle(self):
         self._cycles_since_active += 1
 
+    # why do both of these exist
     def activate(self):
         self._cycles_since_active = 0
 
@@ -100,12 +106,14 @@ class DesiredStateProvider(object):
     def set_reached(self):
         self._reached.set()
 
+# contains a dict of DeesiredStateProviders and one set to the active one
 class DesiredStateProviderHandler(object):
 
     def __init__(self):
         self._des_provider = {}
         self._active_des_provider = None
         self._active_des_provider_lock = threading.Lock()
+        # what is held
         self._is_active_held = False
 
     def register_desired_state_provider(self, name, provider):
@@ -114,11 +122,15 @@ class DesiredStateProviderHandler(object):
     def activate_desired_state_provider(self, name):
         if self._active_des_provider != name:
             if not self._is_active_held:
+                # synchronize
                 self._active_des_provider_lock.acquire()
+                # if there is an active provider, deactivate it
                 if self._active_des_provider is not None:
                     states = self._des_provider[self._active_des_provider].deactivate()
+                # set active_des_provide and activate it
                 self._active_des_provider = name
                 states = self._des_provider[self._active_des_provider].activate()
+
                 self._active_des_provider_lock.release()
             return not self._is_active_held
 
@@ -159,6 +171,7 @@ class DesiredStateProviderHandler(object):
     def release_active(self):
         self._is_active_held = False
 
+#
 class Recorder(object):
 
     def __init__(self, dir_name = None, prefix = None):
