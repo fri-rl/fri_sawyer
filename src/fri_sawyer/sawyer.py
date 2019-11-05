@@ -106,7 +106,7 @@ class DesiredStateProvider(object):
     def set_reached(self):
         self._reached.set()
 
-# contains a dict of DeesiredStateProviders and one set to the active one
+# contains a dict of DesiredStateProviders and one set to the active one
 class DesiredStateProviderHandler(object):
 
     def __init__(self):
@@ -171,14 +171,14 @@ class DesiredStateProviderHandler(object):
     def release_active(self):
         self._is_active_held = False
 
-#
+# creates bag files and writes to them
 class Recorder(object):
 
     def __init__(self, dir_name = None, prefix = None):
 
         self.dir_name = '.' if dir_name is None else dir_name
         self.prefix = 'data_' if prefix is None else prefix
-
+        # why do 10 recordings
         self.max_buffered_recordings = 10
         self.buffered_recordings = []
 
@@ -203,7 +203,7 @@ class Recorder(object):
         self._is_recording = False
         self.buffered_recordings[-1].close()
         self._recording_lock.release()
-
+    # create the bag file
     def start_recording(self, stop_current=True):
         if stop_current:
             self.stop_recording()
@@ -220,7 +220,7 @@ class Recorder(object):
 
         self._is_recording = True
         self._recording_lock.release()
-
+    # write to the bag file
     def record(self, topic, msg):
         if self._is_recording:
             # print(self.buffered_recordings)
@@ -243,15 +243,17 @@ class Sawyer(DesiredStateProviderHandler):
 
         self._joint_names = ["right_j0", "right_j1", "right_j2", "right_j3", "right_j4", "right_j5", "right_j6"]
 
+        # what is ctl (control?)
         self._ctl_freq = 100
         self._ctl_thread = threading.Thread(target=self._ctl_loop)
 
+        # publishers
         self._joint_command_pub = rospy.Publisher(TOPIC.JOINT_COMMAND.format(self._name), JointCommand, queue_size=10)
         self._gripper_command_pub = rospy.Publisher(TOPIC.GRIPPER_COMMAND.format(self._name), IOComponentCommand, queue_size=10)
         self._motion_goal_pub = rospy.Publisher(TOPIC.MOTION_GOAL.format(self._name), MotionCommandActionGoal, queue_size=10)
         self._io_robot_pub = rospy.Publisher(TOPIC.IO_ROBOT_COMMAND.format(self._name), IOComponentCommand, queue_size=10)
 
-
+        # subscriptions
         self._joint_states_sub = rospy.Subscriber(TOPIC.JOINT_STATES.format(self._name), JointState, self._joint_states_cb)
         self._gripper_states_sub = rospy.Subscriber(TOPIC.GRIPPER_STATES.format(self._name), IODeviceStatus, self._gripper_states_cb)
         self._navigator_states_sub = rospy.Subscriber(TOPIC.NAVIGATOR_STATES.format(self._name), IODeviceStatus, self._navigator_states_cb)
@@ -270,10 +272,13 @@ class Sawyer(DesiredStateProviderHandler):
 
         self._gripper_home = GRIPPER.MAX
 
+        # idle vs goto
+        # i think idle means waiting for sending instrucitons
         idle = DesiredStateProvider()
         idle.register_state('gripper')
         self.register_desired_state_provider('idle', idle)
 
+        # i think goto is for the robot to actually move and report
         goto = DesiredStateProvider()
         goto.register_state('joint')
         goto.register_state('gripper')
@@ -282,12 +287,14 @@ class Sawyer(DesiredStateProviderHandler):
 
         self.activate_desired_state_provider('idle')
 
+        # what are callbacks
         self._state_callbacks = []
 
         self.HACK_was_holding = False
         self.HACK_do_print = False
 
         self.recorder = None
+        # record joint configuration and end effector pose for anna and alexei
         if self._name == 'anna':
             self.recorder = Recorder(dir_name=data_dir)
             # self.recorder = Recorder(dir_name='{}/../../data'.format(rospkg.RosPack().get_path('fri_base')))
@@ -321,6 +328,7 @@ class Sawyer(DesiredStateProviderHandler):
         if 'right_j0' in msg.name:
             self._joint_state = np.array([msg.position[1:8], msg.velocity[1:8], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
             for cb in self._state_callbacks:
+                # is cb a method
                 cb(self._joint_state,'joint')
 
     def _gripper_states_cb(self, msg):
@@ -372,6 +380,7 @@ class Sawyer(DesiredStateProviderHandler):
     def go_home(self):
         self.goto_position(self._joint_home, self._gripper_home)
 
+    # has to be some better way than checking if there includes a gripper or not
     def goto_position(self, joints=None, gripper=None):
         if joints is not None:
             if gripper is not None:
