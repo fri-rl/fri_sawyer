@@ -1,0 +1,39 @@
+#!/usr/bin/env python
+# license removed for brevity
+import rospy
+import rosgraph
+import genpy
+
+from fri_sawyer.recorder import Recorder
+
+if __name__ == '__main__':
+
+    rospy.init_node('recorder', anonymous=True)
+
+    topic_dict = rospy.get_param('/recorder/topics/',{})
+    dir_name = rospy.get_param('~dir_name',".")
+    prefix = rospy.get_param('~prefix',"rec")
+    print(topic_dict)
+
+    topics=[]
+    for topic in topic_dict.values():
+        topics.extend(topic)
+
+    print(topics)
+
+    master = rosgraph.Master('recorder')
+    available_topics = master.getTopicTypes()
+    available_topics = {tmp[0]:genpy.message.get_message_class(tmp[1]) for tmp in available_topics}
+
+    msg_types = []
+    for topic in topics:
+        if topic not in available_topics:
+            raise KeyError("Unknown topic: {}".format(topic))
+        msg_types.append(available_topics[topic])
+
+    print(msg_types)
+    try:
+        recorder = Recorder(dir_name, prefix, topics, msg_types)
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        pass

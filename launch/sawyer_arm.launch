@@ -1,0 +1,40 @@
+<launch>
+
+  <arg name="sawyer_name" default="tom" />
+  <arg name="sawyer_master" default="http://192.168.0.100:11311" />
+  <arg name="server_master" default="http://192.168.0.200:11311" />
+
+  <!--###########################-->
+  <!--## from robot to server ###-->
+  <!--###########################-->
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_joint_states'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="sub_topic" type="string" value="/robot/joint_states"/>
+    <param name="pub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="pub_topic" type="string" value="/$(arg sawyer_name)/joint/states"/>
+    <param name="msg_type" type="string" value="sensor_msgs/JointState"/>
+  </node>
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_end_effector_states'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="sub_topic" type="string" value="/robot/limb/right/endpoint_state"/>
+    <param name="pub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="pub_topic" type="string" value="/$(arg sawyer_name)/end_effector/states"/>
+    <param name="msg_type" type="string" value="intera_core_msgs/EndpointState"/>
+  </node>
+
+  <!--###########################-->
+  <!--## from server to robot ###-->
+  <!--###########################-->
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_cmds'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="sub_topic" type="string" value="/$(arg sawyer_name)/joint/command"/>
+    <param name="pub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="pub_topic" type="string" value="/robot/limb/right/joint_command"/>
+    <param name="msg_type" type="string" value="intera_core_msgs/JointCommand"/>
+  </node>
+
+
+</launch>

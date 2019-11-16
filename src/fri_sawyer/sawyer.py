@@ -7,10 +7,8 @@ import threading
 
 import rospy
 
-from sensor_msgs.msg import JointState, PointCloud2
-from intera_core_msgs.msg import JointCommand, IODeviceStatus, IOComponentCommand, EndpointState
-from intera_motion_msgs.msg import MotionCommandActionGoal, Trajectory, TrajectoryOptions, Waypoint
-from tf2_msgs.msg import TFMessage
+from sensor_msgs.msg import JointState
+from intera_core_msgs.msg import JointCommand, IODeviceStatus, IOComponentCommand
 
 import time
 
@@ -37,8 +35,6 @@ class TOPIC():
 
     JOINT_COMMAND = "/{}/joint/command"
     GRIPPER_COMMAND = "/{}/gripper/command"
-
-    MOTION_GOAL = "/{}/motion/goal"
 
     IO_ROBOT_COMMAND = "/{}/io/robot/command"
 
@@ -235,7 +231,7 @@ class Recorder(object):
 
 class Sawyer(DesiredStateProviderHandler):
 
-    def __init__(self, name, data_dir = None):
+    def __init__(self, name):
 
         DesiredStateProviderHandler.__init__(self)
 
@@ -250,7 +246,6 @@ class Sawyer(DesiredStateProviderHandler):
         # publishers
         self._joint_command_pub = rospy.Publisher(TOPIC.JOINT_COMMAND.format(self._name), JointCommand, queue_size=10)
         self._gripper_command_pub = rospy.Publisher(TOPIC.GRIPPER_COMMAND.format(self._name), IOComponentCommand, queue_size=10)
-        self._motion_goal_pub = rospy.Publisher(TOPIC.MOTION_GOAL.format(self._name), MotionCommandActionGoal, queue_size=10)
         self._io_robot_pub = rospy.Publisher(TOPIC.IO_ROBOT_COMMAND.format(self._name), IOComponentCommand, queue_size=10)
 
         # subscriptions
@@ -293,31 +288,20 @@ class Sawyer(DesiredStateProviderHandler):
         self.HACK_was_holding = False
         self.HACK_do_print = False
 
-        self.recorder = None
-        # record joint configuration and end effector pose for anna and alexei
-        if self._name == 'anna':
-            self.recorder = Recorder(dir_name=data_dir)
-            # self.recorder = Recorder(dir_name='{}/../../data'.format(rospkg.RosPack().get_path('fri_base')))
-            # # self.recorder = Recorder(dir_name='data')
-            self.recorder.add_topic(TOPIC.JOINT_STATES.format('anna'), JointState)
-            self.recorder.add_topic(TOPIC.JOINT_STATES.format('alexei'), JointState)
-            self.recorder.add_topic(TOPIC.ENDEFF_STATES.format('anna'), EndpointState)
-            self.recorder.add_topic(TOPIC.ENDEFF_STATES.format('alexei'), EndpointState)
-            # self.recorder.add_topic(TOPIC.TF, TFMessage)
-            # self.recorder.add_topic("/kinect1/qhd/points/", PointCloud2)
+        self.recorder_remote = None
 
     def start_recording(self):
-        if self.recorder:
-            self.recorder.start_recording()
+        if self.recorder_remote:
+            self.recorder_remote.start_recording()
 
     def is_recording(self):
-        if self.recorder:
-            return self.recorder.is_recording()
+        if self.recorder_remote:
+            return self.recorder_remote.is_recording()
         return False
 
     def stop_recording(self):
-        if self.recorder:
-            self.recorder.stop_recording()
+        if self.recorder_remote:
+            self.recorder_remote.stop_recording()
 
 
     def register_state_cb(self, cb):
@@ -364,18 +348,13 @@ class Sawyer(DesiredStateProviderHandler):
             elif signal.name == "right_cuff":
                 self.cuff_action_pad(int(signal.data[1]))
 
-    def _calibrate_gripper(self):
-        gripper_calibration_msg = IOComponentCommand()
-        gripper_calibration_msg.time = rospy.Time.now()
-        gripper_calibration_msg.op = "set"
-        gripper_calibration_msg.args = '{"signals": {"calibrate": {"data": [true], "format": {"type": "bool"}}}}'
-        self._gripper_command_pub.publish(gripper_calibration_msg)
-
     def start(self):
         time.sleep(0.1)
         self._turn_off_lights()
-        self._calibrate_gripper()
         self._ctl_thread.start()
+
+    def join(self):
+        self._ctl_thread.join()
 
     def go_home(self):
         self.goto_position(self._joint_home, self._gripper_home)
@@ -471,16 +450,7 @@ class Sawyer(DesiredStateProviderHandler):
                 jerk = (acc-last_acc)/0.01
 
                 vel = compute_vel(self._joint_state, des_joint_state)
-                # if self._name == 'alexei':
-                #     with np.printoptions(precision=6, suppress=True, floatmode='fixed', sign=' '):
-                #         print(self._joint_state[0,:])
-                #         print(des_joint_state[0,:])
-                #         print(self._joint_state[1,:])
-                #         print(des_joint_state[1,:])
-                #         print(vel)
-                #         print(self._des_provider[self._active_des_provider]._cycles_since_active)
-                #         print(self._des_provider[self._active_des_provider]._HACK_MAX_STEPS)
-                #         print("")
+
 
                 if MODE == JointCommand.VELOCITY_MODE:
 

@@ -8,10 +8,10 @@ import threading
 import rospy
 
 from sensor_msgs.msg import JointState, PointCloud2
-from intera_core_msgs.msg import JointCommand, IODeviceStatus, IOComponentCommand
+from intera_core_msgs.msg import JointCommand, IODeviceStatus, IOComponentCommand, HeadPanCommand
 from intera_motion_msgs.msg import MotionCommandActionGoal, Trajectory, TrajectoryOptions, Waypoint
 from tf2_msgs.msg import TFMessage
-
+from bondpy import bondpy
 import time
 
 from collections import OrderedDict
@@ -22,12 +22,13 @@ import datetime
 import rospkg
 
 from fri_sawyer.sawyer import DesiredStateProvider, Sawyer
+from fri_sawyer.recorder import RecorderRemote
 
 import sys
 
-data_dir = None
-if len(sys.argv) > 1:
-    data_dir = sys.argv[1]
+from fri_sawyer.srv import CreateRecorderBond, CreateRecorderBondRequest, CommandRecorderBond, CommandRecorderBondRequest
+
+
 
 shadowing = DesiredStateProvider()
 shadowing.register_state('joint')
@@ -38,9 +39,11 @@ alexei = Sawyer('alexei')
 alexei.register_desired_state_provider('shadowing', shadowing)
 
 
-anna = Sawyer('anna', data_dir = data_dir)
+anna = Sawyer('anna')
 
 def leader_thread():
+    recorder_remote = RecorderRemote()
+    anna.recorder_remote = recorder_remote
     anna.start()
     anna.go_home()
     anna.hold_active()
@@ -48,7 +51,7 @@ def leader_thread():
     anna.release_active()
     anna.register_state_cb(lambda states,state_ids: alexei.set_desired_states('shadowing',states,state_ids))
 
-    rospy.spin()
+    anna.join()
 
 def follower_thread():
     alexei.start()
@@ -58,17 +61,18 @@ def follower_thread():
     alexei.release_active()
     alexei.activate_desired_state_provider('shadowing')
 
-    rospy.spin()
-
+    alexei.join()
+    
 if __name__ == '__main__':
     rospy.init_node("Shadowing", anonymous=True)
-
 
     ft = threading.Thread(target=follower_thread)
     lt = threading.Thread(target=leader_thread)
 
     ft.start()
     lt.start()
+
+    rospy.spin()
 
     ft.join()
     lt.join()

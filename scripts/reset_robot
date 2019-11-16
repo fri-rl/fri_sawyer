@@ -1,0 +1,87 @@
+#!/usr/bin/env python
+# license removed for brevity
+import rospy
+from std_msgs.msg import Empty, Bool
+from intera_core_msgs.msg import RobotAssemblyState
+import threading
+
+
+class Resetter(object):
+
+    def __init__(self, name):
+        self.name = name
+        self.last_msg = None
+        self.last_msg_lock = threading.Lock()
+        self.sub = rospy.Subscriber("{}/state".format(self.name),RobotAssemblyState,self._state_callback)
+        self.reset_pub = rospy.Publisher('{}/reset'.format(self.name), Empty, queue_size=10)
+        self.enable_pub = rospy.Publisher('{}/enable'.format(self.name), Bool, queue_size=10)
+
+    def _state_callback(self, msg):
+        with self.last_msg_lock:
+            self.last_msg = msg
+
+    def get_last_reply(self, key):
+        with self.last_msg_lock:
+            if self.last_msg is None:
+                return None
+            if key == 'reset':
+                return bool(self.last_msg.ready)
+            if key == 'enable':
+                return bool(self.last_msg.enabled)
+            raise KeyError("Unknown key name: {}".format(key))
+
+    def _set_value(self, pub, msg, key, max_tries=None):
+        if max_tries is None:
+            max_tries = 500
+
+        rate = rospy.Rate(10) # 10hz
+        try_nr = 0
+
+        while try_nr < max_tries:
+            print("Try: {}".format(try_nr))
+            pub.publish(msg)
+            rate.sleep()
+
+            reply = self.get_last_reply(key)
+
+            try_nr += 1
+            if reply is None:
+                continue
+
+            if reply:
+                print("{} success in {} tries.".format(self.name, try_nr))
+                return
+
+        raise RuntimeError("{} failed after {} tries.".format(self.name,max_tries))
+
+    def reset(self, max_tries=None):
+        msg = Empty()
+        self._set_value(self.reset_pub, msg, 'reset', max_tries)
+
+    def enable(self, max_tries=None):
+        msg = Bool()
+        msg.data = True
+        self._set_value(self.enable_pub, msg, 'enable', max_tries)
+
+if __name__ == '__main__':
+
+    rospy.init_node('reset_robot', anonymous=True)
+
+    robot_name = rospy.get_param('~robot_name')
+    max_tries = rospy.get_param('~max_tries',100)
+
+    try:
+        resetter = Resetter(robot_name)
+
+        try:
+            resetter.reset(max_tries)
+        except Exception as err:
+            print(err)
+
+        try:
+            resetter.enable(max_tries)
+        except Exception as err:
+            print(err)
+
+    except rospy.ROSInterruptException:
+        pass

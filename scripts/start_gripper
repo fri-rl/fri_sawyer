@@ -1,0 +1,73 @@
+#!/usr/bin/env python
+# license removed for brevity
+import rospy
+from intera_core_msgs.msg import IOComponentCommand, IODeviceStatus
+
+import threading
+import json
+
+class GripperCalib(object):
+
+    def __init__(self, name):
+        self.name = name
+        self.last_msg = None
+        self.last_msg_lock = threading.Lock()
+        self.sub = rospy.Subscriber("{}/gripper/states".format(self.name),IODeviceStatus,self._state_callback)
+        self.pub = rospy.Publisher('{}/gripper/command'.format(self.name), IOComponentCommand, queue_size=10)
+
+    def _state_callback(self, msg):
+        with self.last_msg_lock:
+            self.last_msg = msg
+
+    def get_last_reply(self, key):
+        with self.last_msg_lock:
+            if self.last_msg is None:
+                return None
+            for signal in self.last_msg.signals:
+                if signal.name != key:
+                    continue
+                return json.loads(signal.data)
+            raise KeyError("Unknown signal name: {}".format(key))
+
+    def calibrate(self, max_tries=None):
+        if max_tries is None:
+            max_tries = 500
+
+        msg = IOComponentCommand()
+        msg.op = 'set'
+        msg.args = json.dumps({"signals":{"calibrate":{"data": [True], "format": {"type": "bool"}}}})
+
+        rate = rospy.Rate(10) # 10hz
+        try_nr = 0
+
+        while try_nr < max_tries:
+            print("Try: {}".format(try_nr))
+            msg.time = rospy.Time.now()
+            self.pub.publish(msg)
+            rate.sleep()
+
+            reply = self.get_last_reply("is_calibrated")
+
+            try_nr += 1
+            if reply is None:
+                continue
+
+            if reply[0] == True:
+                print("{} successfully calibrated in {} tries.".format(self.name, try_nr))
+                return
+
+        raise RuntimeError("{} failed to calibrate after {} tries.".format(self.name, max_tries))
+
+if __name__ == '__main__':
+
+    rospy.init_node('start_gripper', anonymous=True)
+
+    robot_name = rospy.get_param('~robot_name')
+    max_tries = rospy.get_param('~max_tries',500)
+
+    try:
+        calib = GripperCalib(robot_name)
+        calib.calibrate(max_tries)
+
+    except rospy.ROSInterruptException:
+        pass

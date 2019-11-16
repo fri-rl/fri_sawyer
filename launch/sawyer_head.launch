@@ -1,0 +1,50 @@
+<launch>
+
+  <arg name="sawyer_name" default="tom" />
+  <arg name="sawyer_master" default="http://192.168.0.100:11311" />
+  <arg name="server_master" default="http://192.168.0.200:11311" />
+
+  <!--###########################-->
+  <!--## from robot to server ###-->
+  <!--###########################-->
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_head_state'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="sub_topic" type="string" value="/robot/head/head_state"/>
+    <param name="pub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="pub_topic" type="string" value="/$(arg sawyer_name)/head/state"/>
+    <param name="msg_type" type="string" value="intera_core_msgs/HeadState"/>
+  </node>
+
+  <!--###########################-->
+  <!--## from server to robot ###-->
+  <!--###########################-->
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_head_camera_command_head_pan'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="sub_topic" type="string" value="/$(arg sawyer_name)/head_joint/command"/>
+    <param name="pub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="pub_topic" type="string" value="/robot/head/command_head_pan"/>
+    <param name="msg_type" type="string" value="intera_core_msgs/HeadPanCommand"/>
+  </node>
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_display'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="sub_topic" type="string" value="/$(arg sawyer_name)/display"/>
+    <param name="pub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="pub_topic" type="string" value="/robot/head_display"/>
+    <param name="msg_type" type="string" value="sensor_msgs/Image"/>
+  </node>
+
+  <node pkg="fri_sawyer" type="keep_head_camera_straight" name="$(eval anon(sawyer_name+'_keep_head_camera_straight'))" required="true" output="screen" >
+    <param name="robot_name" type="string" value="$(arg sawyer_name)"/>
+  </node>
+
+  <include file="$(find screen_grab)/launch/screen_grab.launch">
+    <arg name="prefix" value="$(arg sawyer_name)" />
+    <arg name="image" value="$(arg sawyer_name)/display" />
+  </include>
+
+
+
+</launch>

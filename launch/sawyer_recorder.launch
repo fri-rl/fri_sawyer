@@ -1,0 +1,12 @@
+<launch>
+
+  <arg name="dir_name" default="$(env PWD)"/>
+  <arg name="prefix" default="rec"/>
+
+  <node pkg="fri_sawyer" type="recorder" name="$(eval anon('recorder'))" required="true" output="screen" cwd="node">
+    <param name="dir_name" value="$(arg dir_name)" />
+    <param name="prefix" value="$(arg prefix)" />
+  </node>
+
+
+</launch>

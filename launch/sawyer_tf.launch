@@ -1,0 +1,32 @@
+<launch>
+
+  <arg name="sawyer_name" default="tom" />
+  <arg name="sawyer_master" default="http://192.168.0.100:11311" />
+  <arg name="server_master" default="http://192.168.0.200:11311" />
+  <arg name="tf_map_to_sawyer" default="0 0 0 0 0 0 1" />
+
+
+  <!--###########################-->
+  <!--## from robot to server ###-->
+  <!--###########################-->
+
+
+  <!--###########################-->
+  <!--## from server to robot ###-->
+  <!--###########################-->
+
+  <node launch-prefix="bash -c 'if [ &quot;`rosnode list /$(arg sawyer_name)_forward_tf`&quot; == &quot;&quot; ]; then $0 $@ ; else echo -e &quot;\033[0;33mTF already forwarded\033[0m&quot;; fi'" pkg="multicore_comm" type="tfbridge_node"  name="$(arg sawyer_name)_forward_tf" required="false" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="sub_topic" type="string" value="/tf"/>
+    <param name="pub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="pub_topic" type="string" value="/tf"/>
+    <param name="msg_type" type="string" value="tf2_msgs/TFMessage"/>
+    <param name="tf_name" type="string" value="$(arg sawyer_name)"/>
+  </node>
+
+
+  <node pkg="tf" type="static_transform_publisher" name="map_to_$(arg sawyer_name)" args="$(arg tf_map_to_sawyer) map $(arg sawyer_name)/base 100" />
+  <node pkg="tf" type="static_transform_publisher" name="$(arg sawyer_name)_to_reference" args="0 0 0 0 0 0 1 $(arg sawyer_name)/base $(arg sawyer_name)/reference/base 100" />
+
+
+</launch>

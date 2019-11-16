@@ -1,0 +1,72 @@
+<launch>
+
+  <arg name="sawyer_name" default="tom" />
+  <arg name="camera_name" default="$(arg sawyer_name)_camera"/>
+  <arg name="sawyer_master" default="http://192.168.0.100:11311" />
+  <arg name="server_master" default="http://192.168.0.200:11311" />
+
+  <arg name="stream_rect" default="true" />
+  <arg name="stream_raw" default="false" />
+  <arg name="stream_info" default="false" />
+
+  <arg name="exposure" default="-1" />
+  <arg name="gain" default="5" />
+
+  <!--###########################-->
+  <!--## from robot to server ###-->
+  <!--###########################-->
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_head_camera_state'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="sub_topic" type="string" value="/io/internal_camera/head_camera/state"/>
+    <param name="pub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="pub_topic" type="string" value="$(arg camera_name)/state"/>
+    <param name="msg_type" type="string" value="intera_core_msgs/IODeviceStatus"/>
+  </node>
+
+  <node if="$(arg stream_rect)" pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_head_camera_color_rect'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="sub_topic" type="string" value="/io/internal_camera/head_camera/image_rect_color"/>
+    <param name="pub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="pub_topic" type="string" value="$(arg camera_name)/image_color_rect"/>
+    <param name="msg_type" type="string" value="sensor_msgs/Image"/>
+  </node>
+
+  <node if="$(arg stream_raw)" pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_head_camera_color'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="sub_topic" type="string" value="/io/internal_camera/head_camera/image_raw"/>
+    <param name="pub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="pub_topic" type="string" value="$(arg camera_name)/image_color"/>
+    <param name="msg_type" type="string" value="sensor_msgs/Image"/>
+  </node>
+
+  <node if="$(arg stream_info)" pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_head_camera_info'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="sub_topic" type="string" value="/io/internal_camera/head_camera/camera_info"/>
+    <param name="pub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="pub_topic" type="string" value="$(arg camera_name)/camera_info"/>
+    <param name="msg_type" type="string" value="sensor_msgs/CameraInfo"/>
+  </node>
+
+
+
+  <!--###########################-->
+  <!--## from server to robot ###-->
+  <!--###########################-->
+
+  <node pkg="multicore_comm" type="bridge_node" name="$(eval anon(sawyer_name+'_head_camera_command'))" required="true" output="screen" >
+    <param name="sub_master_uri" type="string" value="$(arg server_master)"/>
+    <param name="sub_topic" type="string" value="$(arg camera_name)/command"/>
+    <param name="pub_master_uri" type="string" value="$(arg sawyer_master)"/>
+    <param name="pub_topic" type="string" value="/io/internal_camera/head_camera/command"/>
+    <param name="msg_type" type="string" value="intera_core_msgs/IOComponentCommand"/>
+  </node>
+
+  <node pkg="fri_sawyer" type="start_camera" name="$(eval anon(sawyer_name+'_start_camera'))" output="screen" >
+    <param name="camera_name" type="string" value="/camera/$(arg camera_name)"/>
+    <param name="start_streaming" type="bool" value="true"/>
+    <param name="exposure" type="int" value="$(arg exposure)"/>
+    <param name="gain" type="int" value="$(arg gain)"/>
+  </node>
+
+</launch>

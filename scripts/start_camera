@@ -1,0 +1,143 @@
+#!/usr/bin/env python
+# license removed for brevity
+import rospy
+from intera_core_msgs.msg import IODeviceStatus, IOComponentCommand
+import threading
+
+import json
+
+
+class CameraStarter(object):
+
+    def __init__(self, name):
+        self.name = name
+        self.last_msg = None
+        self.last_msg_lock = threading.Lock()
+        self.sub = rospy.Subscriber("{}/state".format(self.name),IODeviceStatus, self._state_callback)
+        self.pub = rospy.Publisher('{}/command'.format(self.name), IOComponentCommand, queue_size=10)
+
+    def _state_callback(self, msg):
+        with self.last_msg_lock:
+            self.last_msg = msg
+
+    def get_last_reply(self, key):
+        with self.last_msg_lock:
+            if self.last_msg is None:
+                return None
+            for signal in self.last_msg.signals:
+                if signal.name != key:
+                    continue
+                return json.loads(signal.data)
+            raise KeyError("Unknown signal name: {}".format(key))
+
+    def _set_value(self, key, value, type, max_tries=None):
+        if max_tries is None:
+            max_tries = 500
+
+        msg = IOComponentCommand()
+        msg.op = 'set'
+        msg.args = json.dumps({"signals":{key:{"data": [value], "format": {"type": type}}}})
+
+        rate = rospy.Rate(10) # 10hz
+        try_nr = 0
+
+        while try_nr < max_tries:
+            print("Try: {}".format(try_nr))
+            msg.time = rospy.Time.now()
+            self.pub.publish(msg)
+            rate.sleep()
+
+            reply = self.get_last_reply(key)
+
+            try_nr += 1
+            if reply is None:
+                continue
+
+            if reply[0] == value:
+                print("{} successfully set {} to {} in {} tries.".format(self.name, key, value, try_nr))
+                return
+
+        raise RuntimeError("{} failed to set {} to {} after {} tries.".format(self.name, key, value, max_tries))
+
+    def start_streaming(self, value):
+        self._set_value("camera_streaming", value, "bool", max_tries)
+
+    def set_exposure(self, value):
+        self._set_value("set_exposure", value, "int", max_tries)
+
+    def set_gain(self, value):
+        self._set_value("set_gain", value, "int", max_tries)
+
+    def reset(self, max_tries=None):
+        msg = Empty()
+        self._set_value(self.reset_pub, msg, 'reset', max_tries)
+
+    def enable(self, max_tries=None):
+        msg = Bool()
+        msg.data = True
+        self._set_value(self.enable_pub, msg, 'enable', max_tries)
+
+
+def _get_exposure_and_gain(exposure, gain):
+    exposure_limits = [0,100]
+    gain_limits = [0,79]
+
+    if (exposure is None) or (exposure == -1):
+        if (gain is None) or (gain == -1):
+            return exposure, gain
+        elif (gain < gain_limits[0]) or (gain > gain_limits[1]):
+            raise RuntimeError("Gain out of range: {}\nGain has to to be either -1 for automatic or between {} and {} for manual".format(gain, gain_limits[0], gain_limits[-1]))
+        else:
+            return -1, gain
+
+    elif (exposure < exposure_limits[0]) or (exposure > exposure_limits[1]):
+        raise RuntimeError("Exposure out of range: {}\nExposure has to to be either -1 for automatic or between {} and {} for manual".format(exposure, exposure_limits[0], exposure_limits[-1]))
+
+    else:
+        if (gain is None) or (gain == -1):
+            return exposure, -1
+        elif (gain < gain_limits[0]) or (gain > gain_limits[1]):
+            raise RuntimeError("Gain out of range: {}\nGain has to to be either -1 for automatic or between {} and {} for manual".format(gain, gain_limits[0], gain_limits[-1]))
+        else:
+            raise RuntimeError("Either gain or exposure has to be set to automatic but both have values. gain: {}, exposure:{}".format(gain, exposure))
+
+
+
+if __name__ == '__main__':
+
+    rospy.init_node('start_camera', anonymous=True)
+
+    camera_name = rospy.get_param('~camera_name')
+
+    start_streaming = rospy.get_param('~start_streaming',None)
+    if start_streaming is not None:
+        start_streaming = bool(start_streaming)
+
+    exposure = rospy.get_param('~exposure',None)
+    if exposure is not None:
+        exposure = int(exposure)
+
+    gain = rospy.get_param('~gain',None)
+    if gain is not None:
+        gain = int(gain)
+
+    max_tries = rospy.get_param('~max_tries',100)
+
+    exposure, gain = _get_exposure_and_gain(exposure, gain)
+
+
+    try:
+        starter = CameraStarter(camera_name)
+
+        try:
+            if start_streaming is not None:
+                starter.start_streaming(start_streaming)
+            if exposure is not None:
+                starter.set_exposure(exposure)
+            if gain is not None:
+                starter.set_gain(gain)
+        except Exception as err:
+            print(err)
+
+    except rospy.ROSInterruptException:
+        pass
