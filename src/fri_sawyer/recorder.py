@@ -21,7 +21,8 @@ class Recorder(object):
         self.bag_lock = threading.Lock()
         self.subs = []
         for topic, msg_type in zip(topics, msg_types):
-            self.subs.append(rospy.Subscriber(topic, msg_type, lambda msg: self.record(topic, msg)))
+            # print("ADDING SUBSCRIBER {}:{}".format(topic, msg_type))
+            self.subs.append(rospy.Subscriber(topic, msg_type, lambda msg,topic=topic: self.record(topic, msg)))
 
         self.open_srv = rospy.Service('start_recording', CommandRecorderBond, self.handle_open)
         self.close_srv = rospy.Service('stop_recording', CommandRecorderBond, self.handle_close)
@@ -34,13 +35,14 @@ class Recorder(object):
     def start_bond(self, bond_id):
         bond = bondpy.Bond("/recorder_bond", bond_id)
         bond.start()
-        if not bond.wait_until_formed(rospy.Duration(3.0)):
+        if not bond.wait_until_formed(rospy.Duration(10.0)):
             raise Exception('Bond could not be formed')
         bond.wait_until_broken()
         if self.current_bond == bond_id:
             self.close()
 
     def record(self, topic, msg):
+        # print("NEW DATA: {}:{}".format(topic, type(msg)))
         with self.bag_lock:
             if self.bag is not None:
                 self.bag.write(topic, msg)
@@ -78,6 +80,7 @@ class Recorder(object):
             if self.bag is None:
                 timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
                 self.bag = rosbag.Bag('{}/{}_{}.bag'.format(self.dir_name,self.prefix, timestamp), 'w', compression='bz2')
+                # self.bag = rosbag.Bag('{}/{}_{}.bag'.format(self.dir_name,self.prefix, timestamp), 'w')
                 self.current_bond = bond_id
 
     def close(self):
@@ -93,16 +96,16 @@ class Recorder(object):
 class RecorderRemote(object):
 
     def __init__(self, prefix = None):
-        rospy.wait_for_service('/bond_recording', 2.0)
+        rospy.wait_for_service('/bond_recording', 10.0)
         self.bond_recording_service = rospy.ServiceProxy('/bond_recording', CreateRecorderBond)
 
-        rospy.wait_for_service('/start_recording', 2.0)
+        rospy.wait_for_service('/start_recording', 10.0)
         self.start_recording_service = rospy.ServiceProxy('/start_recording', CommandRecorderBond)
 
-        rospy.wait_for_service('/stop_recording', 2.0)
+        rospy.wait_for_service('/stop_recording', 10.0)
         self.stop_recording_service = rospy.ServiceProxy('/stop_recording', CommandRecorderBond)
 
-        rospy.wait_for_service('/is_recording', 2.0)
+        rospy.wait_for_service('/is_recording', 10.0)
         self.is_recording_service = rospy.ServiceProxy('/is_recording', CommandRecorderBond)
 
         self.bond = None
@@ -130,7 +133,7 @@ class RecorderRemote(object):
             bond_id = resp.bond_id
             self.bond = bondpy.Bond("/recorder_bond", bond_id)
             self.bond.start()
-            if not self.bond.wait_until_formed(rospy.Duration(3.0)):
+            if not self.bond.wait_until_formed(rospy.Duration(10.0)):
                 raise Exception('Bond could not be formed')
             self.bond_id = bond_id
         except rospy.ServiceException as exc:

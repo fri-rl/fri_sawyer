@@ -43,6 +43,7 @@
   <include file="$(find screen_grab)/launch/screen_grab.launch">
     <arg name="prefix" value="$(arg sawyer_name)" />
     <arg name="image" value="$(arg sawyer_name)/display" />
+    <arg name="update_rate" value="10" />
   </include>
 
 

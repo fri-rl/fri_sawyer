@@ -1,0 +1,7 @@
+<launch>
+
+  <arg name="node_start_delay" default="1.0"/>
+
+  <node launch-prefix="/bin/bash -c 'sleep $(arg node_start_delay); $0 $@' " pkg="fri_sawyer" type="shadowing" name="shadowing" required="true" output="screen"/>
+
+</launch>

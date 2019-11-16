@@ -7,6 +7,4 @@
       <arg name="tf_map_to_sawyer" value="0 -1.2192 0 0 0 0 1" />
   </include>
 
-  <include file="$(find fri_sawyer)/launch/sawyer_recorder.launch" />
-
 </launch>
