@@ -11,6 +11,99 @@ from bondpy import bondpy
 
 import uuid
 
+
+import roslaunch
+
+
+
+class RoslaunchRecorder(object):
+
+    def __init__(self, dir_name, prefix, topics, msg_types):
+        def dummy_signal_handler():
+            pass
+        roslaunch.pmon._init_signal_handlers = dummy_signal_handler
+
+        self.dir_name = dir_name
+        self.prefix = prefix
+
+        self.topics = " ".join(topics)
+
+        self.bag_proc = None
+        self.bag_lock = threading.Lock()
+
+        self.launcher = roslaunch.scriptapi.ROSLaunch()
+        self.launcher.start()
+
+        self.open_srv = rospy.Service('start_recording', CommandRecorderBond, self.handle_open)
+        self.close_srv = rospy.Service('stop_recording', CommandRecorderBond, self.handle_close)
+        self.bond_srv = rospy.Service('bond_recording', CreateRecorderBond, self.handle_bond)
+        self.is_recording_srv = rospy.Service('is_recording', CommandRecorderBond, self.handle_is_recording)
+
+        self.bonds = {}
+        self.current_bond = {}
+
+    def start_bond(self, bond_id):
+        bond = bondpy.Bond("/recorder_bond", bond_id)
+        bond.start()
+        if not bond.wait_until_formed(rospy.Duration(10.0)):
+            raise Exception('Bond could not be formed')
+        bond.wait_until_broken()
+        if self.current_bond == bond_id:
+            self.close()
+
+    def handle_bond(self, req):
+        bond_id = str(uuid.uuid4())
+        bond_thread = threading.Thread(target=self.start_bond, args=(bond_id,))
+        self.bonds[bond_id] = bond_thread
+        resp = CreateRecorderBondResponse()
+        resp.bond_id = bond_id
+
+        bond_thread.start()
+        return resp
+
+    def handle_open(self, req):
+        if req.bond_id not in self.bonds:
+            raise RuntimeError("Unknown bond id: {}".format(req.bond_id))
+        self.open(req.bond_id)
+        return self.handle_is_recording(req)
+
+    def handle_is_recording(self, req):
+        with self.bag_lock:
+            resp = CommandRecorderBondResponse()
+            # resp.is_recording = self.bag_proc.is_alive()
+            resp.is_recording = (self.bag_proc is not None)
+            return resp
+
+    def handle_close(self, req):
+        if req.bond_id not in self.bonds:
+            raise RuntimeError("Unknown bond id: {}".format(req.bond_id))
+        self.close()
+        return self.handle_is_recording(req)
+
+    def open(self, bond_id):
+        with self.bag_lock:
+            if self.bag_proc is None:
+                timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+                node = roslaunch.core.Node('rosbag', 'record', args='record -o {}/{} {}'.format(self.dir_name,self.prefix,self.topics))
+
+                # node = roslaunch.core.Node('rosbag', 'record', args='/anna/joint/states /anna/end_effector/states /alexei/joint/states /alexei/end_effector/states /camera/front/qhd/image_color_rect /camera/front/qhd/image_depth_rect /camera/left/qhd/image_color_rect /camera/left/qhd/image_depth_rect /camera/right/qhd/image_color_rect /camera/right/qhd/image_depth_rect /camera/human/qhd/image_color_rect /camera/human/qhd/image_depth_rect /camera/anna_head/ image_color'.format(self.dir_name,self.prefix))
+
+                self.current_bond = bond_id
+                #
+                self.bag_proc = self.launcher.launch(node)
+
+    def close(self):
+        with self.bag_lock:
+            if self.bag_proc is not None:
+                self.bag_proc.stop()
+                self.current_bond = None
+                self.bag_proc = None
+
+
+
+
+
+
 class Recorder(object):
 
     def __init__(self, dir_name, prefix, topics, msg_types):

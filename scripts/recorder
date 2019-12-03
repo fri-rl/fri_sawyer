@@ -4,9 +4,14 @@ import rospy
 import rosgraph
 import genpy
 
-from fri_sawyer.recorder import Recorder
+
+# from fri_sawyer.recorder import Recorder
+from fri_sawyer.recorder import RoslaunchRecorder as Recorder
+
 
 if __name__ == '__main__':
+
+
 
     rospy.init_node('recorder', anonymous=True)
 
