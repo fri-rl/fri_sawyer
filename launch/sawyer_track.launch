@@ -1,0 +1,10 @@
+<launch>
+
+  <arg name="node_start_delay" default="1.0"/>
+  <arg name="name" default="tom"/>
+
+  <node launch-prefix="/bin/bash -c 'sleep $(arg node_start_delay); $0 $@' " pkg="fri_sawyer" type="track_position_trajectory" name="track_$(arg name)" required="true" output="screen">
+    <param name="name" value="$(arg name)" />
+  </node>
+
+</launch>
