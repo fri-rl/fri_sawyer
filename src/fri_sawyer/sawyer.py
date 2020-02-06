@@ -240,9 +240,19 @@ class Sawyer(DesiredStateProviderHandler):
 
         self._joint_names = ["right_j0", "right_j1", "right_j2", "right_j3", "right_j4", "right_j5", "right_j6"]
 
+        # what are callbacks
+        self._state_callbacks = []
+
+        self.HACK_was_holding = False
+        self.HACK_do_print = False
+
+        self.recorder_remote = None
+
         # what is ctl (control?)
         self._ctl_freq = 100
         self._ctl_thread = threading.Thread(target=self._ctl_loop)
+
+
 
         # publishers
         self._joint_command_pub = rospy.Publisher(TOPIC.JOINT_COMMAND.format(self._name), JointCommand, queue_size=10)
@@ -271,6 +281,8 @@ class Sawyer(DesiredStateProviderHandler):
 
         self._gripper_home = GRIPPER.MAX
 
+
+
         # idle vs goto
         # i think idle means waiting for sending instrucitons
         idle = DesiredStateProvider()
@@ -286,13 +298,6 @@ class Sawyer(DesiredStateProviderHandler):
 
         self.activate_desired_state_provider('idle')
 
-        # what are callbacks
-        self._state_callbacks = []
-
-        self.HACK_was_holding = False
-        self.HACK_do_print = False
-
-        self.recorder_remote = None
 
     def start_recording(self):
         if self.recorder_remote:
@@ -376,13 +381,13 @@ class Sawyer(DesiredStateProviderHandler):
     def goto_position(self, joints=None, gripper=None):
         if joints is not None:
             if gripper is not None:
-                self.set_desired_states('goto', (joints, gripper), ('joint','gripper'))
+                self.set_desired_states('goto', (np.array(joints), float(gripper)), ('joint','gripper'))
             else:
-                self.set_desired_states('goto', (joints,), ('joint',))
+                self.set_desired_states('goto', (np.array(joints),), ('joint',))
             self.activate_desired_state_provider('goto')
         else:
             if gripper is not None:
-                self.set_desired_states('goto', (gripper,), ('gripper',))
+                self.set_desired_states('goto', (float(gripper),), ('gripper',))
                 self.activate_desired_state_provider('goto')
 
 

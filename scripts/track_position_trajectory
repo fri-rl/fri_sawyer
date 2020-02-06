@@ -1,0 +1,83 @@
+#! /usr/bin/env python
+
+
+import numpy as np
+
+import threading
+
+import rospy
+
+import time
+
+from collections import OrderedDict
+
+import rosbag
+import datetime
+
+import rospkg
+
+from fri_sawyer.sawyer import DesiredStateProvider, Sawyer
+from fri_sawyer.srv import PositionTrajectory, PositionTrajectoryRequest, PositionTrajectoryResponse
+
+from fri_sawyer.recorder import RecorderRemote
+
+import sys
+
+
+def track_trajectory(robot, req):
+
+    # print("I,{}, got a request: {}".format(robot._name, req))
+
+    # return PositionTrajectoryResponse()
+
+    position = np.zeros((3,7))
+    tdx = 0
+    start_position = req.trajectory[tdx].position
+    tdx +=1
+    position[0,:] = start_position
+    # print(position)
+    # THIS IS A HUGE HACK!
+    # But it's required for now to avoid quick movements to trajectory start position.
+    robot._des_provider[robot._active_des_provider].activate()
+
+    robot.goto_position(position)
+    robot.hold_active()
+    robot.wait_until_reached()
+    robot.release_active()
+
+    rate = rospy.Rate(1.0/req.timestep)
+    # print(rate)
+    try:
+        while (not rospy.is_shutdown()) and (tdx < len(req.trajectory)):
+            next_position = req.trajectory[tdx].position
+            position[0,:] = next_position
+            robot.goto_position(position)
+            # print("{}: pos {}".format(time.time(),next_position))
+            tdx +=1
+            rate.sleep()
+    except Exception as err:
+        print(err)
+
+    return PositionTrajectoryResponse()
+
+
+if __name__ == '__main__':
+    rospy.init_node("track_trajectory", anonymous=True)
+
+    name = rospy.get_param('~name',"anna")
+
+    recorder_remote = RecorderRemote()
+
+    robot = Sawyer(name)
+
+
+    serv = rospy.Service('track_trajectory/{}'.format(name), PositionTrajectory, lambda req : track_trajectory(robot, req) )
+
+    robot.recorder_remote = recorder_remote
+    robot.start()
+    robot.go_home()
+    robot.hold_active()
+    robot.wait_until_reached()
+    robot.release_active()
+
+    rospy.spin()

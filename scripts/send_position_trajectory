@@ -1,0 +1,39 @@
+#! /usr/bin/env python
+
+
+import numpy as np
+
+
+import rospy
+
+from fri_sawyer.srv import PositionTrajectory, PositionTrajectoryRequest, PositionTrajectoryResponse
+from fri_sawyer.msg import trajectory_step
+
+
+if __name__ == '__main__':
+    rospy.init_node("send_position_trajectory", anonymous=True)
+    name = rospy.get_param('~name',"anna")
+
+    serv = rospy.ServiceProxy('track_trajectory/{}'.format(name), PositionTrajectory)
+    rospy.wait_for_service('track_trajectory/{}'.format(name))
+
+
+    np_array = np.linspace(
+        [-0.552904296875, -1.0434521484375, -3.03815625, -1.900408203125, -0.0976591796875, -0.7901904296875, 1.6137919921875],
+        [-0.345591796875, -1.0379169921875, -3.0447080078125, -1.6942548828125, -0.0912578125, -0.7949296875, 1.62],
+        100
+    )
+
+
+    req = PositionTrajectoryRequest()
+    req.timestep = 0.01
+    for state in np_array:
+        ts = trajectory_step()
+        ts.position = state
+        req.trajectory.append(ts)
+
+    # print(req)
+    resp = serv(req)
+    # print(resp)
+
+    # rospy.spin()
