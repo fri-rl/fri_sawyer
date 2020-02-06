@@ -35,6 +35,7 @@ class TOPIC():
 
     JOINT_COMMAND = "/{}/joint/command"
     GRIPPER_COMMAND = "/{}/gripper/command"
+    KEYFRAME_STATES = "/{}/keyframe/states"
 
     IO_ROBOT_COMMAND = "/{}/io/robot/command"
 
@@ -248,6 +249,9 @@ class Sawyer(DesiredStateProviderHandler):
         self._gripper_command_pub = rospy.Publisher(TOPIC.GRIPPER_COMMAND.format(self._name), IOComponentCommand, queue_size=10)
         self._io_robot_pub = rospy.Publisher(TOPIC.IO_ROBOT_COMMAND.format(self._name), IOComponentCommand, queue_size=10)
 
+        self._keyframe_pub = rospy.Publisher(TOPIC.KEYFRAME_STATES.format(self._name), JointState, queue_size=10)
+
+
         # subscriptions
         self._joint_states_sub = rospy.Subscriber(TOPIC.JOINT_STATES.format(self._name), JointState, self._joint_states_cb)
         self._gripper_states_sub = rospy.Subscriber(TOPIC.GRIPPER_STATES.format(self._name), IODeviceStatus, self._gripper_states_cb)
@@ -302,6 +306,15 @@ class Sawyer(DesiredStateProviderHandler):
     def stop_recording(self):
         if self.recorder_remote:
             self.recorder_remote.stop_recording()
+
+    def _publish_keyframe(self):
+        keyframe = JointState()
+        keyframe.header.stamp = rospy.Time.now()
+        keyframe.name = list(self._joint_names)
+        keyframe.position = self._joint_state[0,:]
+        keyframe.velocity = self._joint_state[1,:]
+
+        self._keyframe_pub.publish(keyframe)
 
 
     def register_state_cb(self, cb):
@@ -516,6 +529,7 @@ class Sawyer(DesiredStateProviderHandler):
 
     def nav_action_x(self, action):
         if action == BUTTON.CLICKED:
+            self._publish_keyframe()
             print("CLICKED X")
 
     def nav_action_back(self, action):

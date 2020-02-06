@@ -1,0 +1,47 @@
+#! /usr/bin/env python
+
+
+import numpy as np
+
+import threading
+
+import rospy
+
+from sensor_msgs.msg import JointState, PointCloud2
+from intera_core_msgs.msg import JointCommand, IODeviceStatus, IOComponentCommand, HeadPanCommand
+from intera_motion_msgs.msg import MotionCommandActionGoal, Trajectory, TrajectoryOptions, Waypoint
+from tf2_msgs.msg import TFMessage
+from bondpy import bondpy
+import time
+
+from collections import OrderedDict
+
+import rosbag
+import datetime
+
+import rospkg
+
+from fri_sawyer.sawyer import DesiredStateProvider, Sawyer
+from fri_sawyer.recorder import RecorderRemote
+
+import sys
+
+from fri_sawyer.srv import CreateRecorderBond, CreateRecorderBondRequest, CommandRecorderBond, CommandRecorderBondRequest
+
+
+if __name__ == '__main__':
+
+    rospy.init_node("fri_sawyer", anonymous=True)
+
+    robot_name = rospy.get_param('~robot_name','sawyer')
+
+    robot = Sawyer(robot_name)
+    recorder_remote = RecorderRemote()
+    robot.recorder_remote = recorder_remote
+    robot.start()
+    robot.go_home()
+    robot.hold_active()
+    robot.wait_until_reached()
+    robot.release_active()
+
+    rospy.spin()
